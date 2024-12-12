@@ -149,10 +149,16 @@
 
                 const addParticipant = () => {
                     const name = newParticipant.value.trim();
-                    if (name) {
-                        participants.value.push(name);
-                        newParticipant.value = '';
+                    if (!name) {
+                        alert('Please enter a participant name');
+                        return;
                     }
+                    if (participants.value.includes(name)) {
+                        alert('This name has already been added');
+                        return;
+                    }
+                    participants.value.push(name);
+                    newParticipant.value = '';
                 };
 
                 const removeParticipant = (index) => {
@@ -177,9 +183,10 @@
                     // Keep trying until we get a valid assignment where no one gets themselves
                     let validAssignment = false;
                     let assignments = {};
-
+                    let receivers;
+                    
                     while (!validAssignment) {
-                        const receivers = shuffle([...participants.value]);
+                        receivers = shuffle([...participants.value]);
                         validAssignment = true;
 
                         // Check if anyone got themselves
@@ -216,12 +223,16 @@
                     try {
                         await navigator.clipboard.writeText(link);
                         const participant = Object.entries(assignmentLinks.value).find(([_, l]) => l === link)[0];
+                        if (!participant) {
+                            throw new Error('Participant not found');
+                        }
                         copyStatus[participant] = 'Copied!';
                         setTimeout(() => {
                             copyStatus[participant] = 'Copy Link';
                         }, 2000);
                     } catch (err) {
-                        alert('Failed to copy link');
+                        console.error('Copy failed:', err);
+                        alert('Failed to copy link. Please try copying manually or try again.');
                     }
                 };
 
