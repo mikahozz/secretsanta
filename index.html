@@ -304,20 +304,44 @@
 
             // Function to create random assignments
             function createSecretSantaAssignments(participants) {
-                const assignments = {};
-                const available = [...participants];
+                let attempts = 0;
+                const maxAttempts = 100;
                 
-                participants.forEach(participant => {
-                    let recipientIndex;
-                    do {
-                        recipientIndex = Math.floor(Math.random() * available.length);
-                    } while (available[recipientIndex] === participant && available.length > 1);
-                    
-                    assignments[participant] = available[recipientIndex];
-                    available.splice(recipientIndex, 1);
-                });
+                while (attempts < maxAttempts) {
+                    try {
+                        const assignments = {};
+                        const receivers = [...participants];
+                        const givers = [...participants];
+                        
+                        // Shuffle receivers array
+                        for (let i = receivers.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [receivers[i], receivers[j]] = [receivers[j], receivers[i]];
+                        }
+                        
+                        // Check if any person is assigned to themselves
+                        let hasSelfAssignment = false;
+                        for (let i = 0; i < givers.length; i++) {
+                            if (givers[i] === receivers[i]) {
+                                hasSelfAssignment = true;
+                                break;
+                            }
+                        }
+                        
+                        // If no self-assignments, create the assignments
+                        if (!hasSelfAssignment) {
+                            givers.forEach((giver, index) => {
+                                assignments[giver] = receivers[index];
+                            });
+                            return assignments;
+                        }
+                    } catch (e) {
+                        console.error('Error in assignment generation:', e);
+                    }
+                    attempts++;
+                }
                 
-                return assignments;
+                throw new Error('Could not generate valid assignments after ' + maxAttempts + ' attempts');
             }
         });
     </script>
