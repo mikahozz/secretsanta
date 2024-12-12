@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secret Santa Generator</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Add CryptoJS for encryption -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body class="min-h-screen bg-cover bg-center bg-no-repeat" style="background-image: url('mariana-b-iKHXbvNHXPQ-unsplash.jpg');">
+    <!-- Dark overlay to make text more readable -->
+    <div class="min-h-screen bg-black bg-opacity-50 flex flex-col justify-between">
+        <!-- Main content - wrap existing content in a div -->
+        <div class="flex items-center justify-center flex-1">
+            <!-- Main content -->
+            <div class="text-center w-full max-w-md mx-auto p-6">
+                <!-- Decrypt View (initially hidden) -->
+                <div id="decryptView" class="hidden">
+                    <div class="space-y-6 mb-8">
+                        <div class="space-y-2">
+                            <p class="text-white text-5xl font-bold">Welcome to:</p>
+                            <p id="gameTitleDisplay" class="text-white text-5xl font-bold italic"></p>
+                        </div>
+                        <p class="text-white text-2xl">Get ready to spread some holiday cheer!</p>
+                    </div>
+                    <button type="button" 
+                            id="revealBtn"
+                            class="w-full bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg transition-colors text-lg font-semibold">
+                        Reveal Your Secret Santa Person
+                    </button>
+                    <div id="assignmentReveal" class="hidden mt-8 p-6 bg-white bg-opacity-20 rounded-lg">
+                        <p class="text-white text-xl">You are the Secret Santa for:</p>
+                        <p id="assignedPerson" class="text-white text-3xl font-bold mt-4"></p>
+                    </div>
+                </div>
+
+                <!-- Input View -->
+                <div id="inputView">
+                    <h1 class="text-white text-5xl font-bold mb-8">Welcome to the Secret Santa App</h1>
+                    
+                    <!-- Game Setup Form -->
+                    <form id="secretSantaForm" class="space-y-6">
+                        <!-- Game Name Input -->
+                        <div>
+                            <input type="text" 
+                                   id="gameName" 
+                                   placeholder="What's the name of your Secret Santa App?" 
+                                   class="w-full p-3 rounded-lg bg-white bg-opacity-20 text-white placeholder-gray-300 border border-white border-opacity-30 focus:outline-none focus:border-opacity-100"
+                                   required>
+                        </div>
+
+                        <!-- Participants List -->
+                        <div>
+                            <div id="participantsList" class="space-y-3">
+                                <!-- Participants and input row will appear here -->
+                            </div>
+                        </div>
+
+                        <!-- Generate Button -->
+                        <button type="button" 
+                                id="generateBtn"
+                                class="w-full bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors text-lg font-semibold mt-6">
+                            Generate Secret Santa
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Results View (initially hidden) -->
+                <div id="resultsView" class="hidden">
+                    <h1 class="text-white text-5xl font-bold mb-8">Secret Santa Assignments</h1>
+                    <div id="assignmentsList" class="space-y-4">
+                        <!-- Assignments will be added here -->
+                    </div>
+                    
+                    <!-- Add instructions section -->
+                    <div class="mt-8 mb-6 p-6 bg-white bg-opacity-20 rounded-lg text-white">
+                        <h2 class="text-2xl font-semibold mb-3">Next Steps:</h2>
+                        <ol class="text-left space-y-2 list-decimal list-inside">
+                            <li>Copy each participant's unique link using the buttons above</li>
+                            <li>Send each person their link privately</li>
+                            <li>When they open the link, they'll see who they're buying a gift for!</li>
+                        </ol>
+                    </div>
+
+                    <button type="button" 
+                            id="backBtn"
+                            class="mt-4 bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
+                        Back to Setup
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Photo credit footer -->
+        <div class="text-center p-2 text-white text-opacity-40 text-xs">
+            Photo by <a href="https://unsplash.com/@mariana42?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash" class="hover:text-opacity-60">Mariana B.</a> on <a href="https://unsplash.com/photos/red-lighted-candle-on-brown-wooden-frame-iKHXbvNHXPQ?utm_content=creditCopyText&utm_medium=referral&utm_source=unsplash" class="hover:text-opacity-60">Unsplash</a>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const participantsList = document.getElementById('participantsList');
+            const addParticipantBtn = document.getElementById('addParticipant');
+            const generateBtn = document.getElementById('generateBtn');
+            const backBtn = document.getElementById('backBtn');
+            const inputView = document.getElementById('inputView');
+            const resultsView = document.getElementById('resultsView');
+            const decryptView = document.getElementById('decryptView');
+            const revealBtn = document.getElementById('revealBtn');
+            const assignmentReveal = document.getElementById('assignmentReveal');
+            const assignedPerson = document.getElementById('assignedPerson');
+            const gameTitleDisplay = document.getElementById('gameTitleDisplay');
+            const ENCRYPTION_KEY = 'your-secret-key-123'; // Change this to your own secret key
+            const newParticipantInput = document.getElementById('newParticipant');
+            let participantCount = 0;
+
+            // Function to create input row
+            function createInputRow() {
+                const inputRow = document.createElement('div');
+                inputRow.className = 'flex gap-2';
+                inputRow.id = 'inputRow';
+                inputRow.innerHTML = `
+                    <input type="text" 
+                           id="newParticipant" 
+                           placeholder="Enter participant name" 
+                           class="flex-1 p-3 rounded-lg bg-white bg-opacity-20 text-white placeholder-gray-300 border border-white border-opacity-30 focus:outline-none focus:border-opacity-100">
+                    <button type="button" 
+                            id="addParticipant" 
+                            class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        Add
+                    </button>
+                `;
+                return inputRow;
+            }
+
+            // Function to add a participant
+            function addParticipant() {
+                const newParticipantInput = document.getElementById('newParticipant');
+                const participantName = newParticipantInput.value.trim();
+                
+                if (!participantName) {
+                    alert('Please enter a participant name');
+                    return;
+                }
+
+                participantCount++;
+                const participantDiv = document.createElement('div');
+                participantDiv.className = 'flex items-center gap-2 bg-white bg-opacity-20 rounded-lg p-3';
+                participantDiv.innerHTML = `
+                    <span class="flex-1 text-white text-left">${participantName}</span>
+                    <button type="button" 
+                            class="remove-participant bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg transition-colors">
+                        Remove
+                    </button>
+                    <input type="hidden" name="participant${participantCount}" value="${participantName}">
+                `;
+
+                // Remove the current input row
+                const inputRow = document.getElementById('inputRow');
+                inputRow.remove();
+
+                // Add the new participant
+                participantsList.appendChild(participantDiv);
+                
+                // Add the input row back after the new participant
+                const newInputRow = createInputRow();
+                participantsList.appendChild(newInputRow);
+                
+                // Set up the new input and button
+                setupInputHandlers();
+                
+                // Focus the new input
+                document.getElementById('newParticipant').focus();
+
+                // Add remove functionality
+                participantDiv.querySelector('.remove-participant').addEventListener('click', function() {
+                    participantDiv.remove();
+                });
+            }
+
+            // Function to set up input handlers
+            function setupInputHandlers() {
+                const newParticipantInput = document.getElementById('newParticipant');
+                const addParticipantBtn = document.getElementById('addParticipant');
+
+                addParticipantBtn.addEventListener('click', addParticipant);
+                newParticipantInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addParticipant();
+                    }
+                });
+            }
+
+            // Initialize with empty input row
+            participantsList.appendChild(createInputRow());
+            setupInputHandlers();
+
+            // Check for assignment in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const encrypted = urlParams.get('assignment');
+            
+            if (encrypted) {
+                try {
+                    const decrypted = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8);
+                    const assignmentData = JSON.parse(decrypted);
+                    
+                    // Update game name immediately when page loads
+                    gameTitleDisplay.textContent = assignmentData.gameName;
+                    
+                    // Hide other views and show decrypt view
+                    inputView.classList.add('hidden');
+                    resultsView.classList.add('hidden');
+                    decryptView.classList.remove('hidden');
+
+                    revealBtn.addEventListener('click', function() {
+                        try {
+                            assignedPerson.textContent = assignmentData.recipient;
+                            assignmentReveal.classList.remove('hidden');
+                            revealBtn.classList.add('hidden');
+                        } catch (e) {
+                            alert('Invalid assignment link!');
+                        }
+                    });
+                } catch (e) {
+                    alert('Invalid assignment link!');
+                }
+            }
+
+            // Modify generate button handler
+            generateBtn.addEventListener('click', function() {
+                const gameName = document.getElementById('gameName').value;
+                const participants = Array.from(participantsList.querySelectorAll('input[type="hidden"]')).map(input => input.value);
+
+                // Validate inputs
+                if (!gameName) {
+                    alert('Please enter a game name');
+                    return;
+                }
+                if (participants.length < 2) {
+                    alert('Please add at least 2 participants');
+                    return;
+                }
+                if (participants.some(name => !name.trim())) {
+                    alert('Please fill in all participant names');
+                    return;
+                }
+
+                // Create random assignments
+                const assignments = createSecretSantaAssignments(participants);
+
+                // Show results view
+                inputView.classList.add('hidden');
+                resultsView.classList.remove('hidden');
+
+                // Clear previous results
+                const assignmentsList = document.getElementById('assignmentsList');
+                assignmentsList.innerHTML = '';
+
+                // Add participant entries with encrypted assignments
+                participants.forEach((participant, index) => {
+                    const assignedTo = assignments[participant];
+                    const assignmentData = {
+                        gameName: gameName,
+                        recipient: assignedTo
+                    };
+                    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(assignmentData), ENCRYPTION_KEY).toString();
+                    const assignmentLink = `${window.location.origin}${window.location.pathname}?assignment=${encodeURIComponent(encrypted)}`;
+
+                    const assignmentDiv = document.createElement('div');
+                    assignmentDiv.className = 'flex items-center justify-between bg-white bg-opacity-20 p-4 rounded-lg';
+                    assignmentDiv.innerHTML = `
+                        <span class="text-white text-lg">${participant}</span>
+                        <button type="button" 
+                                class="copy-link-btn bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors"
+                                data-link="${assignmentLink}">
+                            Copy Link
+                        </button>
+                    `;
+                    assignmentsList.appendChild(assignmentDiv);
+
+                    // Add copy functionality
+                    assignmentDiv.querySelector('.copy-link-btn').addEventListener('click', function() {
+                        navigator.clipboard.writeText(this.dataset.link)
+                            .then(() => {
+                                const originalText = this.textContent;
+                                this.textContent = 'Copied!';
+                                setTimeout(() => {
+                                    this.textContent = originalText;
+                                }, 2000);
+                            })
+                            .catch(() => alert('Failed to copy link'));
+                    });
+                });
+            });
+
+            // Back button click handler
+            backBtn.addEventListener('click', function() {
+                resultsView.classList.add('hidden');
+                inputView.classList.remove('hidden');
+            });
+
+            // Function to create random assignments
+            function createSecretSantaAssignments(participants) {
+                const assignments = {};
+                const available = [...participants];
+                
+                participants.forEach(participant => {
+                    let recipientIndex;
+                    do {
+                        recipientIndex = Math.floor(Math.random() * available.length);
+                    } while (available[recipientIndex] === participant && available.length > 1);
+                    
+                    assignments[participant] = available[recipientIndex];
+                    available.splice(recipientIndex, 1);
+                });
+                
+                return assignments;
+            }
+        });
+    </script>
+</body>
+</html> 
